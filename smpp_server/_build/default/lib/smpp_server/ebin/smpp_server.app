@@ -1,0 +1,11 @@
+{application,smpp_server,
+             [{description,"An OTP application"},
+              {vsn,"0.1.0"},
+              {registered,[]},
+              {mod,{smpp_server_app,[]}},
+              {applications,[kernel,stdlib]},
+              {env,[]},
+              {modules,[smpp_listener,smpp_server_app,smpp_server_sup,
+                        smpp_session,smpp_session_sup]},
+              {licenses,["Apache-2.0"]},
+              {links,[]}]}.
