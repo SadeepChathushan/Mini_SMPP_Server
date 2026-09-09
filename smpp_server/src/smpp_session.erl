@@ -35,18 +35,25 @@ init(Socket) ->
     ),
 
     State = #{
-        socket => Socket
+        socket => Socket,
+        bound => false,
+        system_id => undefined
     },
 
     {ok, State}.
 
 handle_cast(activate, State) ->
-    Socket = maps:get(socket, State),
+    Socket =
+        maps:get(
+            socket,
+            State
+        ),
 
-    ok = inet:setopts(
-        Socket,
-        [{active, once}]
-    ),
+    ok =
+        inet:setopts(
+            Socket,
+            [{active, once}]
+        ),
 
     io:format(
         "Session activated: ~p~n",
@@ -67,12 +74,20 @@ handle_info(
         [self(), Data]
     ),
 
-    ok = inet:setopts(
-        Socket,
-        [{active, once}]
-    ),
+    NewState =
+        handle_client_data(
+            Socket,
+            Data,
+            State
+        ),
 
-    {noreply, State};
+    ok =
+        inet:setopts(
+            Socket,
+            [{active, once}]
+        ),
+
+    {noreply, NewState};
 
 handle_info(
     {tcp_closed, _Socket},
@@ -112,3 +127,85 @@ terminate(_Reason, State) ->
     end,
 
     ok.
+
+handle_client_data(
+    Socket,
+    Data,
+    State
+) ->
+    CleanData =
+        string:trim(
+            binary_to_list(Data)
+        ),
+
+    Parts =
+        string:tokens(
+            CleanData,
+            " "
+        ),
+
+    handle_command(
+        Socket,
+        Parts,
+        State
+    ).
+
+handle_command(
+    Socket,
+    ["BIND", Username, Password],
+    State
+) ->
+    UsernameBin =
+        list_to_binary(Username),
+
+    PasswordBin =
+        list_to_binary(Password),
+
+    case smpp_auth:authenticate(
+        UsernameBin,
+        PasswordBin
+    ) of
+        true ->
+            io:format(
+                "Bind successful for ~p~n",
+                [UsernameBin]
+            ),
+
+            ok =
+                gen_tcp:send(
+                    Socket,
+                    <<"BIND_OK\r\n">>
+                ),
+
+            State#{
+                bound => true,
+                system_id => UsernameBin
+            };
+
+        false ->
+            io:format(
+                "Bind failed for ~p~n",
+                [UsernameBin]
+            ),
+
+            ok =
+                gen_tcp:send(
+                    Socket,
+                    <<"BIND_FAIL\r\n">>
+                ),
+
+            State
+    end;
+
+handle_command(
+    Socket,
+    _Parts,
+    State
+) ->
+    ok =
+        gen_tcp:send(
+            Socket,
+            <<"UNKNOWN_COMMAND\r\n">>
+        ),
+
+    State.
