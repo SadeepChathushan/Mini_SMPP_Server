@@ -7,6 +7,7 @@
     init/1
 ]).
 
+
 start_link() ->
     supervisor:start_link(
         {local, ?MODULE},
@@ -14,42 +15,77 @@ start_link() ->
         []
     ).
 
+
 init([]) ->
+
     SupFlags = #{
         strategy => one_for_one,
         intensity => 5,
         period => 10
     },
 
+
     SessionSupervisor = #{
         id => smpp_session_sup,
+
         start => {
             smpp_session_sup,
             start_link,
             []
         },
+
         restart => permanent,
         shutdown => 5000,
         type => supervisor,
-        modules => [smpp_session_sup]
+        modules => [
+            smpp_session_sup
+        ]
     },
+
+
+    MessageStore = #{
+        id => message_store,
+
+        start => {
+            message_store,
+            start_link,
+            []
+        },
+
+        restart => permanent,
+        shutdown => 5000,
+        type => worker,
+        modules => [
+            message_store
+        ]
+    },
+
 
     Listener = #{
         id => smpp_listener,
+
         start => {
             smpp_listener,
             start_link,
             []
         },
+
         restart => permanent,
         shutdown => 5000,
         type => worker,
-        modules => [smpp_listener]
+        modules => [
+            smpp_listener
+        ]
     },
+
 
     Children = [
         SessionSupervisor,
+        MessageStore,
         Listener
     ],
 
-    {ok, {SupFlags, Children}}.
+    {ok, {
+        SupFlags,
+        Children
+    }}.
